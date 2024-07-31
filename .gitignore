@@ -9,3 +9,4 @@ ingest copy.py
 mock-up.png
 notes.txt
 package.json
+.DS_Store
