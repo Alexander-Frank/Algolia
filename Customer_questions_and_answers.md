@@ -68,11 +68,11 @@ I'm sorry to hear that you don't like the new dashboard design.
 Just to make sure we're on the same page, when you mention "several clicks away", what exactly are you referring to?
 [Clearing and deleting](https://www.algolia.com/doc/guides/sending-and-managing-data/manage-indices-and-apps/manage-indices/how-to/delete-indices/#:~:text=Clear%20records%20from%20an%20index%20in%20the%20Algolia%20dashboard,-If%20you%20only&text=On%20the%20left%20sidebar%2C%20select%20Search.,-Select%20your%20Algolia&text=Select%20Manage%20index%20%3E%20Clear.,to%20confirm%20and%20click%20Clear.) can be handled with 3 clicks from a selected index, by clicking on "Manage index" --> "Clear/Delete" --> Type `CLEAR` and click "Clear".
 
-If that's already what you're referring to, have you considered using the API to automate this process or build a custom UI for clearing/deleting?
+If that's what you're referring to, have you considered using the API to automate this process or build a custom UI for clearing/deleting?
 
 I'm happy to provide you with a script which can handle the deleting/clearing. Let me know if that's something you're interested in.
 
-In any way, thanks for the feedback! I'll reach out to the engineering team and position this as a product feature. For the meantime, let me know if you need any further assistance!
+In any way, thanks for the feedback! I'll reach out to the engineering team and position this as a product feature. In the meantime, let me know if you need any further assistance!
 
 Kind regards,<br>
 Alex
