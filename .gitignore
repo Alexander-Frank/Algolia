@@ -1,0 +1,11 @@
+env/
+.vscode/
+assets/
+resources/
+index.css
+index.html
+index.js
+ingest copy.py
+mock-up.png
+notes.txt
+package.json

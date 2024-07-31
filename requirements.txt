@@ -1,0 +1,4 @@
+algoliasearch
+pandas
+beautifulsoup4
+tqdm

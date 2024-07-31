@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Restaurant 42</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="icon" href="favicon.ico" type="image/png" />
+    <script src="https://cdn.jsdelivr.net/npm/algoliasearch@3/dist/algoliasearchLite.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/algoliasearch-helper@3.22.3/dist/algoliasearch.helper.min.js"></script>
+    <style>
+        .star-rating {
+            display: flex;
+            direction: ltr;
+        }
+
+        .star {
+            width: 24px;
+            height: 24px;
+            background-color: #ddd;
+            clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+            margin: 2px;
+        }
+
+        .star.filled {
+            background-color: gold;
+        }
+
+        .star.half {
+            background: linear-gradient(90deg, gold 50%, #ddd 50%);
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar bg-primary" data-bs-theme="dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <img src="favicon.ico" alt="Logo" width="24" height="24" class="d-inline-block align-text-top">
+                Restaurant finder
+            </a>
+        </div>
+    </nav>
+    <div class="container mt-3 text-center" id="waitMessage">Waiting for Location...</div>
+    <div class="container" id="mainContent" style="display: none;">
+        <div class="input-group input-group-lg mb-1 mt-3">
+            <span class="input-group-text" id="inputGroup-sizing-lg">Type to search</span>
+            <input id="searchBar" type="text" class="form-control" aria-label="Restaurant Name"
+                aria-describedby="inputGroup-sizing-lg">
+        </div>
+        <p id="resultsText"></p>
+        <div class="row mt-4 mb-2">
+            <div class="col-sm-3">
+                <h5>Min. Star rating</h5>
+                <label for="minStarRating" id="currentStars" class="form-label">0 Stars</label>
+                <input type="range" class="form-range" id="minStarRating" min="0" max="5" step="0.5" value="0">
+                <div id="facet-list"></div>
+            </div>
+            <div class="col-sm-9">
+                <div id="results" class="row row-cols-1 row-cols-md-3 g-4">
+                </div>
+                <div id="loadMore" class="text-center mb-2 mt-3">
+                    <button type="button" class="btn btn-outline-secondary">Load More</button>
+                </div>
+            </div>
+        </div>
+        <div class="row mt-2 mb-2 text-center">
+            <p id="locationInfo"></p>
+        </div>
+
+
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+            crossorigin="anonymous"></script>
+        <script>
+            var applicationID = "RQYL9UDJE3";
+            var apiKey = "da30c10f5512ba863b2b44e027f85ee2";
+            var indexName = "restaurants";
+            var minStarRating = 0;
+
+            function isMobileDevice() {
+                const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+                const isMobile = /android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+                const isSmallScreen = window.innerWidth <= 800;
+
+                return isMobile || isSmallScreen;
+            }
+
+            function addShadow(e) {
+                e.currentTarget.classList.add("shadow-lg");
+            }
+
+            function removeShadow(e) {
+                e.currentTarget.classList.remove("shadow-lg");
+            }
+
+            if ("geolocation" in navigator) {
+                navigator.geolocation.getCurrentPosition((position) => {
+                    console.log(position.coords.latitude, position.coords.longitude);
+                    initializeAlgoliaHelper(position.coords.latitude, position.coords.longitude);
+                }, () => {
+                    console.log('Geolocation not available or denied, using location via IP');
+                    initializeAlgoliaHelper();
+                });
+            } else {
+                console.log('Geolocation not supported by this browser, using location via IP');
+                initializeAlgoliaHelper();
+            }
+
+            function initializeAlgoliaHelper(lat, lng) {
+                var client = algoliasearch(applicationID, apiKey);
+                var helperConfig = {
+                    disjunctiveFacets: ['dining_style', 'payment_options', 'food_type'],
+                    getRankingInfo: true,
+                    aroundRadius: 'all'
+                };
+
+                if (lat && lng) { // Add location data if available or use IP location as fallback
+                    helperConfig.aroundLatLng = `${lat},${lng}`;
+                    document.getElementById('locationInfo').innerText = `Using location data to rank results based on geolocation lat: ${lat} lng:${lng}`;
+                } else {
+                    helperConfig.aroundLatLngViaIP = true;
+                    document.getElementById('locationInfo').innerText = `Using location data to rank results based on geolocation via ip address`;
+                }
+
+                var helper = algoliasearchHelper(client, indexName, helperConfig);
+                helper.addNumericRefinement('stars_count', '>', minStarRating);
+
+                var facet_naming = {
+                    'dining_style': 'Dining Style',
+                    'food_type': 'Type of cuisine/Food Type',
+                    'payment_options': 'Payment Options'
+                };
+
+                helper.on('result', function (content) {
+                    if (content.results.processingTimeMS) {
+                        document.getElementById('resultsText').innerHTML = `${content.results.nbHits} results found in ${content.results.processingTimeMS / 1000}s`;
+                    }
+
+                    if (content.results.nbPages > 0 && content.results.nbPages != content.results.page + 1) {
+                        document.getElementById('loadMore').style.display = 'block';
+                    } else {
+                        document.getElementById('loadMore').style.display = 'none';
+                    }
+
+                    var replaceResults = content.results.page === 0;
+                    renderFacetList(content);
+                    renderHits(content, replaceResults);
+                });
+
+                helper.search();
+
+                document.getElementById('waitMessage').style.display = 'none';
+                document.getElementById('mainContent').style.display = 'block';
+
+                function loadMore() {
+                    var currentPage = helper.getPage();
+                    helper.setPage(currentPage).nextPage().search();
+                }
+
+                function searchQuery() {
+                    var searchvalue = document.getElementById('searchBar').value;
+                    helper.setQuery(searchvalue).search();
+                }
+
+                function handleStarRatingChange() {
+                    minStarRating = document.getElementById('minStarRating').value;
+                    currentStarRatingElem = document.getElementById('currentStars');
+
+                    if (minStarRating == 1) {
+                        currentStarRatingElem.innerHTML = `${minStarRating} star`;
+                    } else {
+                        currentStarRatingElem.innerHTML = `${minStarRating} stars`;
+                    }
+
+                    helper.clearRefinements('stars_count').search();
+                    helper.addNumericRefinement('stars_count', '>', minStarRating);
+                    helper.search();
+                }
+
+                function handleFacetClick(e) {
+                    e.preventDefault();
+                    var target = e.target;
+                    var attribute = target.getAttribute('data-attribute');
+                    var value = target.getAttribute('data-value');
+                    if (!attribute || !value) return;
+                    helper.toggleRefine(attribute, value).search();
+                }
+
+                function createStars(rating, reviewsCount) {
+                    const starContainer = document.createElement('div');
+                    starContainer.className = 'star-rating';
+                    starContainer.setAttribute('data-rating', rating);
+
+                    for (let i = 0; i < 5; i++) {
+                        const star = document.createElement('div');
+                        star.className = 'star';
+                        if (rating >= i + 1) {
+                            star.classList.add('filled');
+                        } else if (rating > i && rating < i + 1) {
+                            star.classList.add('half');
+                        }
+                        starContainer.appendChild(star);
+                    }
+
+                    const reviewsText = document.createElement('p');
+                    reviewsText.className = 'reviews-count';
+                    reviewsText.textContent = `(${reviewsCount})`;
+                    starContainer.appendChild(reviewsText);
+
+                    return starContainer;
+                }
+
+                function renderFacetList(content) {
+                    var facetList = document.getElementById('facet-list');
+                    var facet_data = content.results.disjunctiveFacets;
+                    facetList.innerHTML = '';
+
+                    facet_data.forEach(data => {
+                        var subtitle = document.createElement('h5');
+                        subtitle.textContent = facet_naming[data.name];
+                        var facetDiv = document.createElement('div');
+                        facetDiv.className = "btn-group-vertical mb-3";
+                        facetDiv.role = "group";
+                        facetDiv.style.width = '100%';
+                        facetDiv.ariaLabel = data.name;
+
+                        for (let key in data.data) {
+                            var facet_count = data.data[key];
+
+                            var checkbox = document.createElement('input');
+                            checkbox.type = 'checkbox';
+                            checkbox.className = 'btn-check';
+                            checkbox.autocomplete = 'off';
+                            checkbox.onclick = handleFacetClick;
+                            checkbox.setAttribute('data-attribute', data.name);
+                            checkbox.setAttribute('data-value', key);
+                            checkbox.id = 'fl-' + key;
+
+                            if (content.state.disjunctiveFacetsRefinements[data.name] && content.state.disjunctiveFacetsRefinements[data.name].includes(key)) {
+                                checkbox.checked = true;
+                            }
+
+                            var label = document.createElement('label');
+                            label.htmlFor = 'fl-' + key;
+                            label.className = 'btn btn-outline-primary';
+                            label.innerHTML = key + ' (' + facet_count + ')';
+
+                            facetDiv.appendChild(checkbox);
+                            facetDiv.appendChild(label);
+                        }
+
+                        facetList.appendChild(subtitle);
+                        facetList.appendChild(facetDiv);
+                    });
+                }
+
+                function renderHits(content, replaceResults) {
+                    var results = document.getElementById('results');
+                    if (replaceResults) {
+                        results.innerHTML = '';
+                    }
+                    var hits = content.results.hits;
+
+                    hits.forEach(data => {
+                        const coldiv = document.createElement('div');
+                        coldiv.className = 'col';
+
+                        const card = document.createElement('div');
+                        card.className = 'card h-100';
+                        card.onmouseover = addShadow;
+                        card.onmouseout = removeShadow;
+
+                        const img = document.createElement('img');
+                        img.src = data.new_image_url;
+                        img.className = 'card-img-top';
+                        img.alt = data.name;
+
+                        const cardBody = document.createElement('div');
+                        cardBody.className = 'card-body';
+
+                        const cardTitle = document.createElement('h5');
+                        cardTitle.className = 'card-title';
+                        cardTitle.textContent = data.name;
+
+                        const cardText = document.createElement('p');
+                        cardText.className = 'card-text';
+                        cardText.textContent = `${data.food_type} | ${data.neighborhood} | ${data.price_range}`;
+
+                        const cardLink = document.createElement('a');
+
+                        if (isMobileDevice()) {
+                            cardLink.href = data.mobile_reserve_url;
+                        } else {
+                            cardLink.href = data.reserve_url;
+                        }
+
+                        cardLink.className = 'btn btn-primary stretched-link';
+                        cardLink.textContent = 'Reserve a table';
+                        cardLink.target = '_blank';
+
+                        const starRating = createStars(data.stars_count, data.reviews_count);
+
+                        cardBody.appendChild(cardTitle);
+                        cardBody.appendChild(starRating);
+                        cardBody.appendChild(cardText);
+                        cardBody.appendChild(cardLink);
+
+                        card.appendChild(img);
+                        card.appendChild(cardBody);
+
+                        coldiv.appendChild(card);
+
+                        results.appendChild(coldiv);
+                    });
+                }
+
+                document.getElementById('loadMore').onclick = loadMore;
+                document.getElementById('searchBar').onkeyup = searchQuery;
+                document.getElementById('minStarRating').onchange = handleStarRatingChange;
+            }
+
+        </script>
+
+</body>
+
+</html>
