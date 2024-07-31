@@ -3,7 +3,7 @@ env/
 assets/
 resources/
 index.css
-index.html
+demo_index.html
 index.js
 ingest copy.py
 mock-up.png
